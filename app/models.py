@@ -40,7 +40,7 @@ class Conditions(BaseModel):
 class Input(BaseModel):
     conditions: Conditions
     # https://min.io/docs/minio/linux/administration/identity-access-management/policy-based-access-control.html
-    action: Optional[AnyStr] = None
+    action: AnyStr
     bucket: AnyStr
 
 
