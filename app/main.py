@@ -43,9 +43,9 @@ async def root(auth_request: AuthRequest):
         # only owners of the bucket can do actions without prefixes
         bucket_owner = owner_username_from_bucket_name(bucket)
         if bucket_owner == username:
-            logger.info("Owner", username, bucket, action)
+            logger.debug("Owner", username, bucket, action)
             return {"result": {"allow": True}}
-        logger.warning(f"Not owner with no prefixes {username} {bucket} {action}")
+        logger.debug(f"Not owner with no prefixes {username} {bucket} {action}")
         return {"result": {"allow": False}}
 
     # users access the objects in these buckets through presigned urls, admins are approved above
