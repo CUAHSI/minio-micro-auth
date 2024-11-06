@@ -2,14 +2,14 @@ import logging
 
 from fastapi import FastAPI
 
-from .database import (
+from database import (
     is_superuser_and_id,
     owner_username_from_bucket_name,
     resource_discoverablity,
     user_has_edit_access,
     user_has_view_access,
 )
-from .models import AuthRequest
+from models import AuthRequest
 
 logger = logging.getLogger("micro-auth")
 
@@ -23,7 +23,7 @@ async def root(auth_request: AuthRequest):
     bucket = auth_request.input.bucket
     action = auth_request.input.action
 
-    logger.debug(f"Checking {username} {bucket} {action}")
+    print(f"Checking {username} {bucket} {action}")
 
     if username == "cuahsi" or username == "minioadmin":
         # allow cuahsi admin account always
@@ -37,31 +37,33 @@ async def root(auth_request: AuthRequest):
     if is_superuser:
         return {"result": {"allow": True}}
 
+    # users access the objects in these buckets through presigned urls, admins are approved above
+    if bucket in ["zips", "tmp", "bags"]:
+        return {"result": {"allow": False}}
+
     # prefixes are paths to (folders/set of) objects in the bucket
     prefixes = auth_request.input.conditions.prefixes
     if not prefixes:
         # only owners of the bucket can do actions without prefixes
         bucket_owner = owner_username_from_bucket_name(bucket)
         if bucket_owner == username:
-            logger.debug("Owner", username, bucket, action)
+            print("Owner", username, bucket, action)
             return {"result": {"allow": True}}
-        logger.debug(f"Not owner with no prefixes {username} {bucket} {action}")
-        return {"result": {"allow": False}}
-
-    # users access the objects in these buckets through presigned urls, admins are approved above
-    if bucket in ["zips", "tmp", "bags"]:
+        print(f"Not owner with no prefixes {username} {bucket} {action}")
         return {"result": {"allow": False}}
 
     resource_ids = [prefix.split("/")[0] for prefix in prefixes]
     # check the user and each resource against the action
     for resource_id in resource_ids:
         if not check_user_authorization(user_id, resource_id, action):
-            logger.debug(f"Denied {username} {resource_id} {action}")
+            print(f"Denied {username} {resource_id} {action}")
             return {"result": {"allow": False}}
         else:
-            logger.debug(f"Approved {username} {resource_id} {action}")
+            print(f"Approved {username} {resource_id} {action}")
+    if resource_ids:
+        return {"result" : {"allow": True}}
 
-    logger.debug(f"No resources found for {username} {prefixes}")
+    print(f"No resources found for {username} {prefixes}")
     return {"result": {"allow": False}}
 
 

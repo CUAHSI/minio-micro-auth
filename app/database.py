@@ -2,7 +2,7 @@ import os
 
 from sqlalchemy import create_engine, text
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@localhost:54322/postgres")
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@host.docker.internal:54322/postgres")
 engine = create_engine(DATABASE_URL)
 
 
@@ -14,7 +14,10 @@ def is_superuser_and_id(username: str):
 
     with engine.connect() as con:
         rs = con.execute(text(query))
-        return rs.fetchone()
+        row = rs.fetchone()
+        if row:
+            return row
+    return {False, None}
 
 
 def get_bucket_name(username: str) -> str:
@@ -40,7 +43,9 @@ def owner_username_from_bucket_name(bucket_name: str) -> str:
 
     with engine.connect() as con:
         rs = con.execute(text(query))
-        return rs.fetchone()[0]
+        row = rs.fetchone()
+        if row:
+            return row[0]
 
 
 def resource_discoverablity(resource_id: str):
@@ -53,7 +58,10 @@ def resource_discoverablity(resource_id: str):
 
     with engine.connect() as con:
         rs = con.execute(text(query))
-        return rs.fetchone()
+        row = rs.fetchone()
+        if row:
+            return row
+    return (False, False, False)
 
 
 def user_has_view_access(user_id: int, resource_id: str):
@@ -117,11 +125,3 @@ def user_has_edit_access(user_id: int, resource_id: str):
         if result:
             return True
         return False
-
-
-print(is_superuser_and_id('admin'))
-print(get_bucket_name('admin'))
-print(owner_username_from_bucket_name('admin-21e67f86f4df4b008a5894622fa81c00'))
-print(resource_discoverablity('c5b44869a666462a921ead0c6f3c9975'))
-print(user_has_view_access(4, 'c5b44869a666462a921ead0c6f3c9975'))
-print(user_has_edit_access(4, 'c5b44869a666462a921ead0c6f3c9975'))
