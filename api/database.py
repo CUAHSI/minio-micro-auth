@@ -2,7 +2,7 @@ import os
 
 from sqlalchemy import create_engine, text
 
-DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://postgres:postgres@host.docker.internal:54322/postgres")
+DATABASE_URL = os.environ.get("HS_DATABASE_URL")
 engine = create_engine(DATABASE_URL)
 
 
@@ -73,7 +73,9 @@ def resource_discoverablity(resource_id: str, quota_holder_id: int):
     AND hs_core_genericresource.quota_holder_id = :quota_holder_id"""
 
     with engine.connect() as con:
-        rs = con.execute(statement=text(query), parameters=dict(resource_id=resource_id, quota_holder_id=quota_holder_id))
+        rs = con.execute(
+            statement=text(query), parameters=dict(resource_id=resource_id, quota_holder_id=quota_holder_id)
+        )
         row = rs.fetchone()
         if row:
             return row
@@ -102,7 +104,10 @@ def user_has_view_access(user_id: int, resource_id: str, quota_holder_id: int):
     AND hs_core_genericresource.quota_holder_id = :quota_holder_id"""
 
     with engine.connect() as con:
-        rs = con.execute(statement=text(query), parameters=dict(user_id=user_id, resource_id=resource_id, quota_holder_id=quota_holder_id))
+        rs = con.execute(
+            statement=text(query),
+            parameters=dict(user_id=user_id, resource_id=resource_id, quota_holder_id=quota_holder_id),
+        )
         result = rs.fetchone()
         if result:
             return True
@@ -138,7 +143,10 @@ def user_has_edit_access(user_id: int, resource_id: str, quota_holder_id: int):
     AND hs_core_genericresource.short_id = :resource_id
     AND hs_core_genericresource.quota_holder_id = :quota_holder_id"""
     with engine.connect() as con:
-        rs = con.execute(statement=text(query), parameters=dict(user_id=user_id, resource_id=resource_id, quota_holder_id=quota_holder_id))
+        rs = con.execute(
+            statement=text(query),
+            parameters=dict(user_id=user_id, resource_id=resource_id, quota_holder_id=quota_holder_id),
+        )
         result = rs.fetchone()
         if result:
             return True

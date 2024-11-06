@@ -1,24 +1,65 @@
 import logging
-
-from fastapi import FastAPI
+from typing import AnyStr, List, Optional
 
 from database import (
     is_superuser_and_id,
     owner_username_from_bucket_name,
+    quota_holder_id_from_bucket_name,
     resource_discoverablity,
     user_has_edit_access,
     user_has_view_access,
-    quota_holder_id_from_bucket_name
 )
-from models import AuthRequest
+from fastapi import APIRouter
+from pydantic import BaseModel
 
+router = APIRouter()
 logger = logging.getLogger("micro-auth")
 
-app = FastAPI()
+
+class Conditions(BaseModel):
+    preferred_username: Optional[List[AnyStr]] = []
+    username: Optional[List[AnyStr]] = []
+    Prefix: Optional[List[AnyStr]] = []
+    prefix: Optional[List[AnyStr]] = []
+
+    @property
+    def users(self):
+        if self.preferred_username:
+            return self.preferred_username
+        else:
+            return self.username
+
+    @property
+    def user(self):
+        users = self.users
+        if len(users) != 1:
+            logger.warning(f"Exactly one user must be specified {users}")
+            raise ValueError("Exactly one user must be specified")
+        return self.users[0]
+
+    @property
+    def prefixes(self):
+        if self.Prefix:
+            return [prefix for prefix in self.Prefix if prefix]
+        elif self.prefix:
+            return [prefix for prefix in self.prefix if prefix]
+        else:
+            return []
 
 
-@app.post("/")
-async def root(auth_request: AuthRequest):
+class Input(BaseModel):
+    conditions: Conditions
+    # https://min.io/docs/minio/linux/administration/identity-access-management/policy-based-access-control.html
+    action: AnyStr
+    bucket: AnyStr
+
+
+class AuthRequest(BaseModel):
+    input: Input
+
+
+@router.post("/authorization/")
+async def hs_s3_authorization_check(auth_request: AuthRequest):
 
     username = auth_request.input.conditions.user
     bucket = auth_request.input.bucket
@@ -60,19 +101,19 @@ async def root(auth_request: AuthRequest):
         print(f"No quota holder found for {bucket}")
         return {"result": {"allow": False}}
     for resource_id in resource_ids:
-        if not check_user_authorization(user_id, resource_id, action, quota_holder_id):
+        if not _check_user_authorization(user_id, resource_id, action, quota_holder_id):
             print(f"Denied {username} {resource_id} {action}")
             return {"result": {"allow": False}}
         else:
             print(f"Approved {username} {resource_id} {action}")
     if resource_ids:
-        return {"result" : {"allow": True}}
+        return {"result": {"allow": True}}
 
     print(f"No resources found for {username} {prefixes}")
     return {"result": {"allow": False}}
 
 
-def check_user_authorization(user_id, resource_id, action, quota_holder_id):
+def _check_user_authorization(user_id, resource_id, action, quota_holder_id):
     # Break this down into just view and edit for now.
     # HydroShare does not conusme changes made through S3 API yet so edit check is not active
     # Later on we could share the metadata files only or allow resource deletion.
@@ -88,7 +129,12 @@ def check_user_authorization(user_id, resource_id, action, quota_holder_id):
             return public or allow_private_sharing or user_has_view_access(user_id, resource_id, quota_holder_id)
         # view and discoverable actions
         if action == "s3:ListObjects" or action == "s3:ListObjjectsV2" or action == "s3:ListBucket":
-            return public or allow_private_sharing or discoverable or user_has_view_access(user_id, resource_id, quota_holder_id)
+            return (
+                public
+                or allow_private_sharing
+                or discoverable
+                or user_has_view_access(user_id, resource_id, quota_holder_id)
+            )
 
     # edit actions
     if action in ["s3:PutObject", "s3:DeleteObject", "s3:DeleteObjects", "s3:UploadPart"]:
