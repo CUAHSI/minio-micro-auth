@@ -8,6 +8,7 @@ from database import (
     resource_discoverablity,
     user_has_edit_access,
     user_has_view_access,
+    quota_holder_id_from_bucket_name
 )
 from models import AuthRequest
 
@@ -54,8 +55,12 @@ async def root(auth_request: AuthRequest):
 
     resource_ids = [prefix.split("/")[0] for prefix in prefixes]
     # check the user and each resource against the action
+    quota_holder_id = quota_holder_id_from_bucket_name(bucket)
+    if not quota_holder_id:
+        print(f"No quota holder found for {bucket}")
+        return {"result": {"allow": False}}
     for resource_id in resource_ids:
-        if not check_user_authorization(user_id, resource_id, action):
+        if not check_user_authorization(user_id, resource_id, action, quota_holder_id):
             print(f"Denied {username} {resource_id} {action}")
             return {"result": {"allow": False}}
         else:
@@ -67,7 +72,7 @@ async def root(auth_request: AuthRequest):
     return {"result": {"allow": False}}
 
 
-def check_user_authorization(user_id, resource_id, action):
+def check_user_authorization(user_id, resource_id, action, quota_holder_id):
     # Break this down into just view and edit for now.
     # HydroShare does not conusme changes made through S3 API yet so edit check is not active
     # Later on we could share the metadata files only or allow resource deletion.
@@ -77,16 +82,16 @@ def check_user_authorization(user_id, resource_id, action):
 
     # view actions
     if action in ["s3:GetObject", "s3:ListObjects", "s3:ListObjjectsV2", "s3:ListBucket"]:
-        public, allow_private_sharing, discoverable = resource_discoverablity(resource_id)
+        public, allow_private_sharing, discoverable = resource_discoverablity(resource_id, quota_holder_id)
 
         if action == "s3:GetObject":
-            return public or allow_private_sharing or user_has_view_access(user_id, resource_id)
+            return public or allow_private_sharing or user_has_view_access(user_id, resource_id, quota_holder_id)
         # view and discoverable actions
         if action == "s3:ListObjects" or action == "s3:ListObjjectsV2" or action == "s3:ListBucket":
-            return public or allow_private_sharing or discoverable or user_has_view_access(user_id, resource_id)
+            return public or allow_private_sharing or discoverable or user_has_view_access(user_id, resource_id, quota_holder_id)
 
     # edit actions
     if action in ["s3:PutObject", "s3:DeleteObject", "s3:DeleteObjects", "s3:UploadPart"]:
-        return user_has_edit_access(user_id, resource_id)
+        return user_has_edit_access(user_id, resource_id, quota_holder_id)
 
     return False

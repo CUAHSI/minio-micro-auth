@@ -48,13 +48,29 @@ def owner_username_from_bucket_name(bucket_name: str) -> str:
             return row[0]
 
 
-def resource_discoverablity(resource_id: str):
+def quota_holder_id_from_bucket_name(bucket_name: str) -> str:
+    # returns the owner's username from the bucket name
+    query = f"""SELECT auth_user.id
+    FROM auth_user
+    INNER JOIN theme_userprofile
+    ON (auth_user.id = theme_userprofile.user_id)
+    WHERE theme_userprofile._bucket_name = '{bucket_name}'"""
+
+    with engine.connect() as con:
+        rs = con.execute(text(query))
+        row = rs.fetchone()
+        if row:
+            return row[0]
+
+
+def resource_discoverablity(resource_id: str, quota_holder_id: int):
     # return public, allow_private_sharing, discoverable as tuple
     query = f"""SELECT hs_access_control_resourceaccess.public, hs_access_control_resourceaccess.allow_private_sharing, hs_access_control_resourceaccess.discoverable
     FROM hs_access_control_resourceaccess
     INNER JOIN hs_core_genericresource
     ON (hs_core_genericresource.page_ptr_id = hs_access_control_resourceaccess.resource_id)
-    WHERE hs_core_genericresource.short_id = '{resource_id}'"""
+    WHERE hs_core_genericresource.short_id = '{resource_id}'
+    AND hs_core_genericresource.quota_holder_id = '{quota_holder_id}'"""
 
     with engine.connect() as con:
         rs = con.execute(text(query))
@@ -64,7 +80,7 @@ def resource_discoverablity(resource_id: str):
     return (False, False, False)
 
 
-def user_has_view_access(user_id: int, resource_id: str):
+def user_has_view_access(user_id: int, resource_id: str, quota_holder_id: int):
     query = f"""SELECT DISTINCT hs_core_genericresource.short_id
     FROM hs_core_genericresource
     LEFT OUTER JOIN hs_access_control_userresourceprivilege
@@ -82,7 +98,8 @@ def user_has_view_access(user_id: int, resource_id: str):
     WHERE (hs_access_control_userresourceprivilege.user_id = {user_id}
     OR (hs_access_control_usergroupprivilege.user_id = {user_id}
     AND hs_access_control_groupaccess.active))
-    and hs_core_genericresource.short_id = '{resource_id}'"""
+    AND hs_core_genericresource.short_id = '{resource_id}'
+    AND hs_core_genericresource.quota_holder_id = '{quota_holder_id}'"""
 
     with engine.connect() as con:
         rs = con.execute(text(query))
@@ -92,7 +109,7 @@ def user_has_view_access(user_id: int, resource_id: str):
         return False
 
 
-def user_has_edit_access(user_id: int, resource_id: str):
+def user_has_edit_access(user_id: int, resource_id: str, quota_holder_id: int):
     query = f"""SELECT DISTINCT hs_core_genericresource.short_id
     FROM hs_core_genericresource
     LEFT OUTER JOIN hs_access_control_userresourceprivilege
@@ -118,7 +135,8 @@ def user_has_edit_access(user_id: int, resource_id: str):
     AND hs_access_control_groupaccess.active
     AND hs_access_control_groupresourceprivilege.privilege = 2
     AND NOT hs_access_control_resourceaccess.immutable))
-    AND hs_core_genericresource.short_id = '{resource_id}'"""
+    AND hs_core_genericresource.short_id = '{resource_id}'
+    AND hs_core_genericresource.quota_holder_id = '{quota_holder_id}'"""
     with engine.connect() as con:
         rs = con.execute(text(query))
         result = rs.fetchone()
