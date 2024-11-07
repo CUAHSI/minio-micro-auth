@@ -20,16 +20,17 @@ async def initialize_mc(app: FastAPI):
     api_endpoint = os.environ.get("S3_API_ENDPOINT")
     access_key = os.environ.get("S3_ACCESS_KEY")
     secret_key = os.environ.get("S3_SECRET_KEY")
-    try:
-        result = subprocess.run(
-            ["mc", "config", "host", "add", "cuahsi-admin", api_endpoint, access_key, secret_key],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except subprocess.CalledProcessError as e:
-        logger.error(f"CLI command failed with error: {e.stderr}")
-        raise e
+    if api_endpoint and access_key and secret_key:
+        try:
+            result = subprocess.run(
+                ["mc", "config", "host", "add", "cuahsi-admin", api_endpoint, access_key, secret_key],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except subprocess.CalledProcessError as e:
+            logger.error(f"CLI command failed with error: {e.stderr}")
+            raise e
     yield
     # cleanup
 
