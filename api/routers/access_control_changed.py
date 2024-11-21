@@ -17,6 +17,7 @@ class AccessLevel(Enum):
 class User(BaseModel):
     username: str
     access: AccessLevel
+    is_superuser: bool
 
 
 class Resource(BaseModel):
