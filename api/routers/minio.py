@@ -1,14 +1,7 @@
 import logging
 from typing import AnyStr, List, Optional
 
-from database import (
-    is_superuser_and_id,
-    owner_username_from_bucket_name,
-    quota_holder_id_from_bucket_name,
-    resource_discoverablity,
-    user_has_edit_access,
-    user_has_view_access,
-)
+from database import is_superuser_and_id, resource_discoverablity, user_has_edit_access, user_has_view_access
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -75,8 +68,8 @@ async def hs_s3_authorization_check(auth_request: AuthRequest):
         # This is needed by mc to list buckets and does not contain a prefix
         return {"result": {"allow": True}}
 
-    is_superuser, user_id = is_superuser_and_id(username)
-    if is_superuser:
+    user_is_superuser, user_id = is_superuser_and_id(username)
+    if user_is_superuser:
         return {"result": {"allow": True}}
 
     # users access the objects in these buckets through presigned urls, admins are approved above
@@ -86,22 +79,12 @@ async def hs_s3_authorization_check(auth_request: AuthRequest):
     # prefixes are paths to (folders/set of) objects in the bucket
     prefixes = auth_request.input.conditions.prefixes
     if not prefixes:
-        # only owners of the bucket can do actions without prefixes
-        bucket_owner = owner_username_from_bucket_name(bucket)
-        if bucket_owner == username:
-            print("Owner", username, bucket, action)
-            return {"result": {"allow": True}}
-        print(f"Not owner with no prefixes {username} {bucket} {action}")
         return {"result": {"allow": False}}
 
     resource_ids = [prefix.split("/")[0] for prefix in prefixes]
     # check the user and each resource against the action
-    quota_holder_id = quota_holder_id_from_bucket_name(bucket)
-    if not quota_holder_id:
-        print(f"No quota holder found for {bucket}")
-        return {"result": {"allow": False}}
     for resource_id in resource_ids:
-        if not _check_user_authorization(user_id, resource_id, action, quota_holder_id):
+        if not _check_user_authorization(user_id, resource_id, action):
             print(f"Denied {username} {resource_id} {action}")
             return {"result": {"allow": False}}
         else:

@@ -20,69 +20,23 @@ def is_superuser_and_id(username: str):
     return {False, None}
 
 
-def get_bucket_name(username: str) -> str:
-    # returns the user's bucket name
-    query = """SELECT theme_userprofile._bucket_name
-    FROM theme_userprofile
-    INNER JOIN auth_user
-    ON (auth_user.id = theme_userprofile.user_id)
-    WHERE auth_user.username = :username"""
-
-    with engine.connect() as con:
-        rs = con.execute(statement=text(query), parameters=dict(username=username))
-        return rs.fetchone()[0]
-
-
-def owner_username_from_bucket_name(bucket_name: str) -> str:
-    # returns the owner's username from the bucket name
-    query = """SELECT auth_user.username
-    FROM auth_user
-    INNER JOIN theme_userprofile
-    ON (auth_user.id = theme_userprofile.user_id)
-    WHERE theme_userprofile._bucket_name = :bucket_name"""
-
-    with engine.connect() as con:
-        rs = con.execute(statement=text(query), parameters=dict(bucket_name=bucket_name))
-        row = rs.fetchone()
-        if row:
-            return row[0]
-
-
-def quota_holder_id_from_bucket_name(bucket_name: str) -> str:
-    # returns the owner's username from the bucket name
-    query = """SELECT auth_user.id
-    FROM auth_user
-    INNER JOIN theme_userprofile
-    ON (auth_user.id = theme_userprofile.user_id)
-    WHERE theme_userprofile._bucket_name = :bucket_name"""
-
-    with engine.connect() as con:
-        rs = con.execute(statement=text(query), parameters=dict(bucket_name=bucket_name))
-        row = rs.fetchone()
-        if row:
-            return row[0]
-
-
-def resource_discoverablity(resource_id: str, quota_holder_id: int):
+def resource_discoverablity(resource_id: str):
     # return public, allow_private_sharing, discoverable as tuple
     query = """SELECT hs_access_control_resourceaccess.public, hs_access_control_resourceaccess.allow_private_sharing, hs_access_control_resourceaccess.discoverable
     FROM hs_access_control_resourceaccess
     INNER JOIN hs_core_genericresource
     ON (hs_core_genericresource.page_ptr_id = hs_access_control_resourceaccess.resource_id)
-    WHERE hs_core_genericresource.short_id = :resource_id
-    AND hs_core_genericresource.quota_holder_id = :quota_holder_id"""
+    WHERE hs_core_genericresource.short_id = :resource_id"""
 
     with engine.connect() as con:
-        rs = con.execute(
-            statement=text(query), parameters=dict(resource_id=resource_id, quota_holder_id=quota_holder_id)
-        )
+        rs = con.execute(statement=text(query), parameters=dict(resource_id=resource_id))
         row = rs.fetchone()
         if row:
             return row
     return (False, False, False)
 
 
-def user_has_view_access(user_id: int, resource_id: str, quota_holder_id: int):
+def user_has_view_access(user_id: int, resource_id: str):
     query = """SELECT DISTINCT hs_core_genericresource.short_id
     FROM hs_core_genericresource
     LEFT OUTER JOIN hs_access_control_userresourceprivilege
@@ -100,13 +54,12 @@ def user_has_view_access(user_id: int, resource_id: str, quota_holder_id: int):
     WHERE (hs_access_control_userresourceprivilege.user_id = :user_id
     OR (hs_access_control_usergroupprivilege.user_id = :user_id
     AND hs_access_control_groupaccess.active))
-    AND hs_core_genericresource.short_id = :resource_id
-    AND hs_core_genericresource.quota_holder_id = :quota_holder_id"""
+    AND hs_core_genericresource.short_id = :resource_id"""
 
     with engine.connect() as con:
         rs = con.execute(
             statement=text(query),
-            parameters=dict(user_id=user_id, resource_id=resource_id, quota_holder_id=quota_holder_id),
+            parameters=dict(user_id=user_id, resource_id=resource_id),
         )
         result = rs.fetchone()
         if result:
@@ -114,7 +67,7 @@ def user_has_view_access(user_id: int, resource_id: str, quota_holder_id: int):
         return False
 
 
-def user_has_edit_access(user_id: int, resource_id: str, quota_holder_id: int):
+def user_has_edit_access(user_id: int, resource_id: str):
     query = """SELECT DISTINCT hs_core_genericresource.short_id
     FROM hs_core_genericresource
     LEFT OUTER JOIN hs_access_control_userresourceprivilege
@@ -140,12 +93,11 @@ def user_has_edit_access(user_id: int, resource_id: str, quota_holder_id: int):
     AND hs_access_control_groupaccess.active
     AND hs_access_control_groupresourceprivilege.privilege = 2
     AND NOT hs_access_control_resourceaccess.immutable))
-    AND hs_core_genericresource.short_id = :resource_id
-    AND hs_core_genericresource.quota_holder_id = :quota_holder_id"""
+    AND hs_core_genericresource.short_id = :resource_id"""
     with engine.connect() as con:
         rs = con.execute(
             statement=text(query),
-            parameters=dict(user_id=user_id, resource_id=resource_id, quota_holder_id=quota_holder_id),
+            parameters=dict(user_id=user_id, resource_id=resource_id),
         )
         result = rs.fetchone()
         if result:
