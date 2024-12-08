@@ -2,6 +2,16 @@ import logging
 from typing import AnyStr, List, Optional
 
 from database import is_superuser_and_id, resource_discoverablity, user_has_edit_access, user_has_view_access
+from cache import (
+    is_superuser_and_id_cache,
+    resource_discoverability_cache,
+    user_has_edit_access_cache,
+    user_has_view_access_cache,
+    backfill_superuser_and_id,
+    backfill_resource_discoverability,
+    backfill_view_access,
+    backfill_edit_access,
+)
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -68,7 +78,12 @@ async def hs_s3_authorization_check(auth_request: AuthRequest):
         # This is needed by mc to list buckets and does not contain a prefix
         return {"result": {"allow": True}}
 
-    user_is_superuser, user_id = is_superuser_and_id(username)
+    try:
+        user_is_superuser, user_id = is_superuser_and_id_cache(username)
+    except:
+        user_is_superuser, user_id = is_superuser_and_id(username)
+        logger.warning(f"Backfilling cache: {username}:(is_superuser:{user_is_superuser},user_id:{user_id})")
+        backfill_superuser_and_id(username, user_is_superuser, user_id)
     if user_is_superuser:
         return {"result": {"allow": True}}
 
@@ -96,7 +111,7 @@ async def hs_s3_authorization_check(auth_request: AuthRequest):
     return {"result": {"allow": False}}
 
 
-def _check_user_authorization(user_id, resource_id, action, quota_holder_id):
+def _check_user_authorization(user_id, resource_id, action):
     # Break this down into just view and edit for now.
     # HydroShare does not conusme changes made through S3 API yet so edit check is not active
     # Later on we could share the metadata files only or allow resource deletion.
@@ -106,21 +121,39 @@ def _check_user_authorization(user_id, resource_id, action, quota_holder_id):
 
     # view actions
     if action in ["s3:GetObject", "s3:ListObjects", "s3:ListObjjectsV2", "s3:ListBucket"]:
-        public, allow_private_sharing, discoverable = resource_discoverablity(resource_id, quota_holder_id)
+        try:
+            public, allow_private_sharing, discoverable = resource_discoverability_cache(resource_id)
+        except:
+            public, allow_private_sharing, discoverable = resource_discoverablity(resource_id)
+            logger.warning(f"Backfilling cache: {resource_id}:(public:{public},allow_private_sharing:{allow_private_sharing},discoverable:{discoverable})")
+            backfill_resource_discoverability(resource_id, public, allow_private_sharing, discoverable)
+
+        try:
+            view_access = user_has_view_access_cache(user_id, resource_id)
+        except:
+            view_access = user_has_view_access(user_id, resource_id)
+            logger.warning(f"Backfilling cache: {user_id}:{resource_id}:{view_access}")
+            backfill_view_access(user_id, resource_id, view_access)
 
         if action == "s3:GetObject":
-            return public or allow_private_sharing or user_has_view_access(user_id, resource_id, quota_holder_id)
+            return public or allow_private_sharing or view_access
         # view and discoverable actions
         if action == "s3:ListObjects" or action == "s3:ListObjjectsV2" or action == "s3:ListBucket":
             return (
                 public
                 or allow_private_sharing
                 or discoverable
-                or user_has_view_access(user_id, resource_id, quota_holder_id)
+                or view_access
             )
 
     # edit actions
     if action in ["s3:PutObject", "s3:DeleteObject", "s3:DeleteObjects", "s3:UploadPart"]:
-        return user_has_edit_access(user_id, resource_id, quota_holder_id)
+        try:
+            edit_access = user_has_edit_access_cache(user_id, resource_id)
+        except:
+            edit_access = user_has_edit_access(user_id, resource_id)
+            logger.warning(f"Backfilling cache: {user_id}:{resource_id}:{edit_access}")
+            backfill_edit_access(user_id, resource_id, edit_access)
+        return edit_access
 
     return False
