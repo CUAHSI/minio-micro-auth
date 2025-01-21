@@ -1,37 +1,38 @@
 import logging
-from enum import Enum
 
-from fastapi import APIRouter
-from pydantic import BaseModel
+from fastapi import APIRouter, Request
+
+import cache
 
 router = APIRouter()
 logger = logging.getLogger("micro-auth")
 
+@router.post("/hook/")
+async def set_auth(request: Request):
+    try:
+        body = await request.json()
 
-class AccessLevel(Enum):
-    VIEW = "VIEW"
-    EDIT = "EDIT"
-    NONE = "NONE"
+        for resource in body["resources"]:
+            resource_id = resource["id"]
+            for user_access in resource["user_access"]:
+                user_id = user_access["id"]
+                access = user_access["access"]
+                cache.set_cache_xx(f"{user_id}:{resource_id}", access)
 
+            if resource["public"]:
+                resource_access = "PUBLIC"
+            elif resource["discoverable"]:
+                resource_access = "DISCOVERABLE"
+            else:
+                resource_access = "PRIVATE"
+            cache.hset_cache_xx(resource_id, {
+                "access": resource_access,
+                "private_sharing": "ENABLED" if resource["allow_private_sharing"] else "DISABLED",
+                "bucket_name": resource["bucket_name"]
+            })
 
-class User(BaseModel):
-    username: str
-    access: AccessLevel
-    is_superuser: bool
+        return None, 204
 
-
-class Resource(BaseModel):
-    id: str
-    public: bool
-    allow_private_sharing: bool
-    discoverable: bool
-    user_access: list[User]
-
-
-class AccessControlChangeRequest(BaseModel):
-    resources: list[Resource]
-
-
-@router.post("/user/resource/")
-async def save_access_key_argo(key_request: AccessControlChangeRequest):
-    print(f"Changing access control for {key_request.resources}")
+    except Exception as e:
+        logger.exception("Error processing request")
+        raise

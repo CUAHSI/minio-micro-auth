@@ -12,6 +12,20 @@ redis_client = redis.Redis(
     decode_responses=True
 )
 
+def set_cache_xx(key, value):
+    redis_client.set(
+        key,
+        value,
+        xx=True
+    )
+
+def hset_cache_xx(key, mapping):
+    if redis_client.exists(key):
+        redis_client.hset(
+            key,
+            mapping=mapping
+        )
+
 def is_superuser_and_id_cache(username):
     is_superuser, user_id = redis_client.hmget(
         username,
