@@ -13,13 +13,16 @@ from cache import (
     backfill_edit_access,
 )
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Extra
 
 router = APIRouter()
 logger = logging.getLogger("micro-auth")
 
 
-class Conditions(BaseModel):
+class AllowBaseModel(BaseModel, extra=Extra.allow):
+    pass
+
+class Conditions(AllowBaseModel):
     preferred_username: Optional[List[AnyStr]] = []
     username: Optional[List[AnyStr]] = []
     Prefix: Optional[List[AnyStr]] = []
@@ -50,19 +53,21 @@ class Conditions(BaseModel):
             return []
 
 
-class Input(BaseModel):
+class Input(AllowBaseModel):
     conditions: Conditions
     # https://min.io/docs/minio/linux/administration/identity-access-management/policy-based-access-control.html
     action: AnyStr
     bucket: AnyStr
+    object: AnyStr
 
 
-class AuthRequest(BaseModel):
+class AuthRequest(AllowBaseModel):
     input: Input
 
 
 @router.post("/authorization/")
 async def hs_s3_authorization_check(auth_request: AuthRequest):
+    print(f"Received request: {auth_request.model_dump_json(indent=2)}")
 
     username = auth_request.input.conditions.user
     bucket = auth_request.input.bucket
@@ -72,19 +77,23 @@ async def hs_s3_authorization_check(auth_request: AuthRequest):
 
     if username == "cuahsi" or username == "minioadmin":
         # allow cuahsi admin account always
+        print(f"Approved cuahsi and minioadmin {username} {bucket} {action}")
         return {"result": {"allow": True}}
 
-    if auth_request.input.action in ["s3:GetBucketLocation"]:
+    if auth_request.input.action in ["s3:GetBucketLocation", "s3:GetBucketObjectLockConfiguration"]:
         # This is needed by mc to list buckets and does not contain a prefix
         return {"result": {"allow": True}}
 
     try:
+        print(f"Checking cache for {username}")
         user_is_superuser, user_id = is_superuser_and_id_cache(username)
     except:
+        print(f"Checking db for {username}")
         user_is_superuser, user_id = is_superuser_and_id(username)
         logger.warning(f"Backfilling cache: {username}:(is_superuser:{user_is_superuser},user_id:{user_id})")
         backfill_superuser_and_id(username, user_is_superuser, user_id)
     if user_is_superuser:
+        print(f"Approved superuser {username} {bucket} {action}")
         return {"result": {"allow": True}}
 
     # users access the objects in these buckets through presigned urls, admins are approved above
@@ -94,17 +103,25 @@ async def hs_s3_authorization_check(auth_request: AuthRequest):
     # prefixes are paths to (folders/set of) objects in the bucket
     prefixes = auth_request.input.conditions.prefixes
     if not prefixes:
-        return {"result": {"allow": False}}
+        if auth_request.input.object:
+            # if there is an object but no prefix, it is a file in the root of the bucket
+            print(f"No prefixes but object {username} {bucket} {action} {auth_request.input.object}")
+            prefixes = [auth_request.input.object]
+        else:
+            print(f"Denied No prefixes {username} {bucket} {action}")
+            return {"result": {"allow": False}}
 
     resource_ids = [prefix.split("/")[0] for prefix in prefixes]
     # check the user and each resource against the action
     for resource_id in resource_ids:
+        print(f"Checking {username} {bucket} {resource_id} {action}")
         if not _check_user_authorization(user_id, resource_id, action):
             print(f"Denied {username} {resource_id} {action}")
             return {"result": {"allow": False}}
         else:
             print(f"Approved {username} {resource_id} {action}")
     if resource_ids:
+        print(f"Approved {username} {bucket} {resource_ids} {action}")
         return {"result": {"allow": True}}
 
     print(f"No resources found for {username} {prefixes}")
@@ -120,7 +137,8 @@ def _check_user_authorization(user_id, resource_id, action):
     # List of actions https://docs.aws.amazon.com/AmazonS3/latest/API/API_Operations.html
 
     # view actions
-    if action in ["s3:GetObject", "s3:ListObjects", "s3:ListObjjectsV2", "s3:ListBucket"]:
+    if action in ["s3:GetObject", "s3:ListObjects", "s3:ListObjjectsV2", "s3:ListBucket", "s3:GetObjectRetention",
+                  "s3:GetObjectLegalHold"]:
         try:
             public, allow_private_sharing, discoverable = resource_discoverability_cache(resource_id)
         except:
@@ -135,10 +153,10 @@ def _check_user_authorization(user_id, resource_id, action):
             logger.warning(f"Backfilling cache: {user_id}:{resource_id}:{view_access}")
             backfill_view_access(user_id, resource_id, view_access)
 
-        if action == "s3:GetObject":
+        if action in ["s3:GetObject", "s3:GetObjectRetention", "s3:GetObjectLegalHold"]:
             return public or allow_private_sharing or view_access
         # view and discoverable actions
-        if action == "s3:ListObjects" or action == "s3:ListObjjectsV2" or action == "s3:ListBucket":
+        if action in ["s3:ListObjects", "s3:ListObjjectsV2", "s3:ListBucket"]:
             return (
                 public
                 or allow_private_sharing
@@ -147,13 +165,14 @@ def _check_user_authorization(user_id, resource_id, action):
             )
 
     # edit actions
-    if action in ["s3:PutObject", "s3:DeleteObject", "s3:DeleteObjects", "s3:UploadPart"]:
+    if action in ["s3:PutObject", "s3:DeleteObject", "s3:DeleteObjects", "s3:UploadPart", "s3:PutObjectLegalHold"]:
         try:
             edit_access = user_has_edit_access_cache(user_id, resource_id)
         except:
             edit_access = user_has_edit_access(user_id, resource_id)
             logger.warning(f"Backfilling cache: {user_id}:{resource_id}:{edit_access}")
             backfill_edit_access(user_id, resource_id, edit_access)
+        print(f"Edit access {user_id} {resource_id} {edit_access}")
         return edit_access
 
     return False

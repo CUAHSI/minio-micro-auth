@@ -1,5 +1,6 @@
 import logging
 import subprocess
+import secrets
 
 from fastapi import APIRouter
 from pydantic import BaseModel
@@ -20,6 +21,15 @@ class ServiceAccountResponse(BaseModel):
 @router.post("/auth/minio/sa/")
 async def create_service_account(key_request: KeyRequest) -> ServiceAccountResponse:
     try:
+        # mc admin user add myminio newuser newusersecret
+        print(f"Creating user for {key_request.username}")
+        result = subprocess.run(
+            ["mc", "admin", "user", "add", "cuahsi-admin", key_request.username, secrets.token_urlsafe(16)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        print(f"Creating Service Account for {key_request.username}")
         result = subprocess.run(
             ["mc", "admin", "user", "svcacct", "add", "cuahsi-admin", key_request.username],
             check=True,
