@@ -103,3 +103,35 @@ def user_has_edit_access(user_id: int, resource_id: str):
         if result:
             return True
         return False
+
+def user_quota_usage(user_id: int):
+    query = """SELECT SUM(""hs_core_resourcefile"."_size")
+    FROM "hs_core_resourcefile"
+    WHERE "hs_core_resourcefile"."object_id"
+    IN (SELECT U0."page_ptr_id" FROM "hs_core_genericresource" U0 WHERE U0."quota_holder_id" = :user_id)"""
+
+    with engine.connect() as con:
+        rs = con.execute(
+            statement=text(query),
+            parameters=dict(user_id=user_id),
+        )
+        result = rs.fetchone()
+        if result:
+            return result[0]
+        return 0
+
+def user_has_quota(user_id: int, filezize : int):
+    quota_usage = user_quota_usage(user_id)
+    query = """SELECT "theme_userquota"."allocated_value"
+    FROM "theme_userquota"
+    WHERE "theme_userquota"."user_id" = :user_id"""
+
+    with engine.connect() as con:
+        rs = con.execute(
+            statement=text(query),
+            parameters=dict(user_id=user_id),
+        )
+        result = rs.fetchone()
+        if result:
+            return quota_usage + filezize <= result[0]
+        return False
