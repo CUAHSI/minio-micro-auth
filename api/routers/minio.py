@@ -1,7 +1,7 @@
 import logging
 from typing import AnyStr, List, Optional
 
-from database import is_superuser_and_id, resource_discoverablity, user_has_edit_access, user_has_view_access
+from database import is_superuser_and_id, resource_discoverablity, user_has_edit_access, user_has_quota, user_has_view_access
 from cache import (
     is_superuser_and_id_cache,
     resource_discoverability_cache,
@@ -13,7 +13,7 @@ from cache import (
     backfill_edit_access,
 )
 from fastapi import APIRouter
-from pydantic import BaseModel, Extra
+from pydantic import BaseModel, Field, Extra
 
 router = APIRouter()
 logger = logging.getLogger("micro-auth")
@@ -27,6 +27,7 @@ class Conditions(AllowBaseModel):
     username: Optional[List[AnyStr]] = []
     Prefix: Optional[List[AnyStr]] = []
     prefix: Optional[List[AnyStr]] = []
+    content_length: Optional[List[AnyStr]] = Field(alias="X-Amz-Decoded-Content-Length", default=[])
 
     @property
     def users(self):
@@ -99,6 +100,12 @@ async def hs_s3_authorization_check(auth_request: AuthRequest):
     # users access the objects in these buckets through presigned urls, admins are approved above
     if bucket in ["zips", "tmp", "bags"]:
         return {"result": {"allow": False}}
+
+    if action == "s3:PutObjectLegalHold":
+        total_new_content_length = sum(auth_request.input.conditions.content_length)
+        if not user_has_quota(user_id, total_new_content_length):
+            print(f"Denied quota exceeded {username} {bucket} {action}")
+            return {"result": {"allow": False}}
 
     # prefixes are paths to (folders/set of) objects in the bucket
     prefixes = auth_request.input.conditions.prefixes
