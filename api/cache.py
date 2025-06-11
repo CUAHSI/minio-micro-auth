@@ -27,6 +27,8 @@ def hset_cache_xx(key, mapping):
         )
 
 def is_superuser_and_id_cache(username):
+    raise Exception
+    # disable cache access for now
     is_superuser, user_id = redis_client.hmget(
         username,
         ["is_superuser", "user_id"]
@@ -37,6 +39,8 @@ def is_superuser_and_id_cache(username):
     return is_superuser == b'\x00', int(user_id)
 
 def resource_discoverability_cache(resource_id):
+    raise Exception
+    # disable cache access for now
     access = redis_client.hmget(
         resource_id,
         ["access", "private_sharing"]
@@ -52,6 +56,8 @@ def resource_discoverability_cache(resource_id):
         raise Exception
 
 def user_has_view_access_cache(user_id, resource_id):
+    raise Exception
+    # disable cache access for now
     access = redis_client.get(
         f"{user_id}:{resource_id}"
     )
@@ -61,6 +67,8 @@ def user_has_view_access_cache(user_id, resource_id):
         return access in ["VIEW", "EDIT"]
 
 def user_has_edit_access_cache(user_id, resource_id):
+    raise Exception
+    # disable cache access for now
     access = redis_client.get(
         f"{user_id}:{resource_id}"
     )
