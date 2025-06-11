@@ -4,10 +4,39 @@ services:
   api:
     volumes:
       - ./api:/app/api
+      - ./tests:/app/tests
     build:
-      dockerfile: ./Dockerfile
-    env_file:
-      - .env
+      dockerfile: ./Dockerfile-testing
+    environment:
+      - HS_DATABASE_URL=postgresql://postgres:postgres@postgres:5432/postgres
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      # - MC_HOST_hydroshare=http://minioadmin:minioadmin@minio
+    links:
+      - postgres
+      - redis
     ports:
-      - 80:80
+      - 8001:8001
     restart: on-failure
+  postgres:
+    image: postgis/postgis:15-3.3
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+    volumes:
+      - ./tests/init-scripts:/docker-entrypoint-initdb.d
+      - postgres_data:/var/lib/postgresql/data
+  redis:
+    image: redis:7.4-alpine
+    ports:
+      - "6379:6379"
+    restart: on-failure
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:

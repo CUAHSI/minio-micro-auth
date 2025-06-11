@@ -1,7 +1,3 @@
-import os
-
-os.environ["HS_DATABASE_URL"] = 'postgresql://postgres:postgres@host.docker.internal:54322/postgres'
-
 from fastapi.testclient import TestClient
 from api.routers.minio import router as minio_router
 import pytest
