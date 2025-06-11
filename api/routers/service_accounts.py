@@ -24,14 +24,14 @@ async def create_service_account(key_request: KeyRequest) -> ServiceAccountRespo
         # mc admin user add myminio newuser newusersecret
         print(f"Creating user for {key_request.username}")
         result = subprocess.run(
-            ["mc", "admin", "user", "add", "cuahsi-admin", key_request.username, secrets.token_urlsafe(16)],
+            ["mc", "admin", "user", "add", "hydroshare", key_request.username, secrets.token_urlsafe(16)],
             check=True,
             capture_output=True,
             text=True,
         )
         print(f"Creating Service Account for {key_request.username}")
         result = subprocess.run(
-            ["mc", "admin", "user", "svcacct", "add", "cuahsi-admin", key_request.username],
+            ["mc", "admin", "user", "svcacct", "add", "hydroshare", key_request.username],
             check=True,
             capture_output=True,
             text=True,

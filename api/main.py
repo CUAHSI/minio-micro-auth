@@ -1,7 +1,5 @@
 import asyncio
 import logging
-import os
-import subprocess
 from contextlib import asynccontextmanager
 
 import uvicorn
@@ -15,28 +13,7 @@ from api.routers.service_accounts import router as service_accounts_router
 
 logger = logging.getLogger("micro-auth")
 
-
-@asynccontextmanager
-async def initialize_mc(app: FastAPI):
-    api_endpoint = os.environ.get("S3_API_ENDPOINT")
-    access_key = os.environ.get("S3_ACCESS_KEY")
-    secret_key = os.environ.get("S3_SECRET_KEY")
-    if api_endpoint and access_key and secret_key:
-        try:
-            result = subprocess.run(
-                ["mc", "config", "host", "add", "cuahsi-admin", api_endpoint, access_key, secret_key],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-        except subprocess.CalledProcessError as e:
-            logger.error(f"CLI command failed with error: {e.stderr}")
-            raise e
-    yield
-    # cleanup
-
-
-app = FastAPI(lifespan=initialize_mc)
+app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
@@ -69,7 +46,7 @@ async def main():
     """Run FastAPI"""
 
     server = Server(
-        config=uvicorn.Config(app, workers=1, loop="asyncio", host="0.0.0.0", port=80, forwarded_allow_ips="*")
+        config=uvicorn.Config(app, workers=1, loop="asyncio", host="0.0.0.0", port=8001, forwarded_allow_ips="*")
     )
     api = asyncio.create_task(server.serve())
 

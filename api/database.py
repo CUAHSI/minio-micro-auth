@@ -20,7 +20,7 @@ def is_superuser_and_id(username: str):
     return {False, None}
 
 
-def resource_discoverablity(resource_id: str):
+def resource_discoverability(resource_id: str):
     # return public, allow_private_sharing, discoverable as tuple
     query = """SELECT hs_access_control_resourceaccess.public, hs_access_control_resourceaccess.allow_private_sharing, hs_access_control_resourceaccess.discoverable
     FROM hs_access_control_resourceaccess
