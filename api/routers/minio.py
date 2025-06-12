@@ -1,19 +1,20 @@
 import logging
 from typing import AnyStr, List, Optional
 
-from api.database import is_superuser_and_id, resource_discoverability, user_has_edit_access, user_has_view_access
+from fastapi import APIRouter
+from pydantic import BaseModel, Extra
+
 from api.cache import (
+    backfill_edit_access,
+    backfill_resource_discoverability,
+    backfill_superuser_and_id,
+    backfill_view_access,
     is_superuser_and_id_cache,
     resource_discoverability_cache,
     user_has_edit_access_cache,
     user_has_view_access_cache,
-    backfill_superuser_and_id,
-    backfill_resource_discoverability,
-    backfill_view_access,
-    backfill_edit_access,
 )
-from fastapi import APIRouter
-from pydantic import BaseModel, Extra
+from api.database import is_superuser_and_id, resource_discoverability, user_has_edit_access, user_has_view_access
 
 router = APIRouter()
 logger = logging.getLogger("micro-auth")
@@ -21,6 +22,7 @@ logger = logging.getLogger("micro-auth")
 
 class AllowBaseModel(BaseModel, extra=Extra.allow):
     pass
+
 
 class Conditions(AllowBaseModel):
     preferred_username: Optional[List[AnyStr]] = []
@@ -122,8 +124,14 @@ def _check_user_authorization(user_id, resource_id, action):
     # List of actions https://docs.aws.amazon.com/AmazonS3/latest/API/API_Operations.html
 
     # view actions
-    if action in ["s3:GetObject", "s3:ListObjects", "s3:ListObjectsV2", "s3:ListBucket", "s3:GetObjectRetention",
-                  "s3:GetObjectLegalHold"]:
+    if action in [
+        "s3:GetObject",
+        "s3:ListObjects",
+        "s3:ListObjectsV2",
+        "s3:ListBucket",
+        "s3:GetObjectRetention",
+        "s3:GetObjectLegalHold",
+    ]:
         try:
             public, allow_private_sharing, discoverable = resource_discoverability_cache(resource_id)
         except:
@@ -140,12 +148,7 @@ def _check_user_authorization(user_id, resource_id, action):
             return public or allow_private_sharing or view_access
         # view and discoverable actions
         if action in ["s3:ListObjects", "s3:ListObjectsV2", "s3:ListBucket"]:
-            return (
-                public
-                or allow_private_sharing
-                or discoverable
-                or view_access
-            )
+            return public or allow_private_sharing or discoverable or view_access
 
     # edit actions
     if action in ["s3:PutObject", "s3:DeleteObject", "s3:DeleteObjects", "s3:UploadPart", "s3:PutObjectLegalHold"]:

@@ -1,11 +1,11 @@
 import logging
 
-from fastapi import APIRouter, Request
-
 import cache
+from fastapi import APIRouter, Request
 
 router = APIRouter()
 logger = logging.getLogger("micro-auth")
+
 
 @router.post("/hook/")
 async def set_auth(request: Request):
@@ -25,11 +25,14 @@ async def set_auth(request: Request):
                 resource_access = "DISCOVERABLE"
             else:
                 resource_access = "PRIVATE"
-            cache.hset_cache_xx(resource_id, {
-                "access": resource_access,
-                "private_sharing": "ENABLED" if resource["allow_private_sharing"] else "DISABLED",
-                "bucket_name": resource["bucket_name"]
-            })
+            cache.hset_cache_xx(
+                resource_id,
+                {
+                    "access": resource_access,
+                    "private_sharing": "ENABLED" if resource["allow_private_sharing"] else "DISABLED",
+                    "bucket_name": resource["bucket_name"],
+                },
+            )
 
         return None, 204
 
