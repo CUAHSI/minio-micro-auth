@@ -5,13 +5,14 @@ import redis
 # Redis configuration
 REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = os.getenv('REDIS_PORT', 6379)
+REDIS_TTL = os.getenv('REDIS_TTL', 3600)
 
 # Initialize Redis connection
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
 
 def set_cache_xx(key, value):
-    redis_client.set(key, value, xx=True)
+    redis_client.set(key, value, xx=True, ex=REDIS_TTL)
 
 
 def hset_cache_xx(key, mapping):
@@ -72,13 +73,14 @@ def backfill_resource_discoverability(resource_id, public, allow_private_sharing
     else:
         access = "PRIVATE"
     redis_client.hmset(
-        resource_id, {"access": access, "private_sharing": "ENABLED" if allow_private_sharing else "DISABLED"}
+        resource_id,
+        {"access": access, "private_sharing": "ENABLED" if allow_private_sharing else "DISABLED"},
     )
 
 
 def backfill_view_access(user_id, resource_id, view_access):
-    redis_client.set(f"{user_id}:{resource_id}", "VIEW" if view_access else "NONE")
+    redis_client.set(f"{user_id}:{resource_id}", "VIEW" if view_access else "NONE", ex=REDIS_TTL)
 
 
 def backfill_edit_access(user_id, resource_id, edit_access):
-    redis_client.set(f"{user_id}:{resource_id}", "EDIT" if edit_access else "VIEW")
+    redis_client.set(f"{user_id}:{resource_id}", "EDIT" if edit_access else "VIEW", ex=REDIS_TTL)
