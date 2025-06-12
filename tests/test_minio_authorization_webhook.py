@@ -10,13 +10,14 @@ client = TestClient(minio_router)
 # The following tests loop through all 4 resources and check the authorization for each user and group.
 # The users, groups and resources are defined as follows:
 
-# user1 owns the reesource
-# user2 does not have access to the resource
-# user3 has view access to the resource
-# user4 has edit access to the resource
-# user5 is an owner
-# user6 is is a member of view group
-# user7 is a member of edit group
+# user1 (18) owns the reesource
+# user2 (19) does not have access to the resource
+# user3 (20) has view access to the resource
+# user4 (22) has edit access to the resource
+# user5 (23) is an owner
+# user6 (24) is is a member of view group
+# user7 (25) is a member of edit group
+
 
 # view group has view access to f211b93642f84c55a0bdd1b12880e32e with user6 as a member
 # edit group has edit access to f211b93642f84c55a0bdd1b12880e32e with user7 as a member
