@@ -1,7 +1,8 @@
-from fastapi.testclient import TestClient
-from api.routers.minio import router as minio_router
 import pytest
+from fastapi.testclient import TestClient
 from redis import Redis
+
+from api.routers.minio import router as minio_router
 
 client = TestClient(minio_router)
 
@@ -25,10 +26,12 @@ client = TestClient(minio_router)
 # a2c0df5bf3eb4d8c8a34beaffe169f91 is the resource id for the public resource
 # 5670903e39d54026a729abd4cc148f99 is the resource id for the discoverable resource
 
+
 @pytest.fixture(autouse=True)
 def clear_redis_cache():
     redis_client = Redis(host='redis', port=6379, db=0)
     redis_client.flushdb()
+
 
 # private resource checks
 def check_private_view_authorization(request_body, resource_id=None):
@@ -56,24 +59,25 @@ def check_private_view_authorization(request_body, resource_id=None):
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user5 is an owner
     request_body = request_body.replace("user4", "user5")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user6 is a member of view group
     request_body = request_body.replace("user5", "user6")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user7 is a member of edit group
     request_body = request_body.replace("user6", "user7")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
+
 
 def check_private_edit_authorization(request_body, resource_id=None):
     if resource_id:
@@ -100,46 +104,57 @@ def check_private_edit_authorization(request_body, resource_id=None):
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user5 is an owner
     request_body = request_body.replace("user4", "user5")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user6 is a member of view group
     request_body = request_body.replace("user5", "user6")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": False}}
-    
+
     # user7 is a member of edit group
     request_body = request_body.replace("user6", "user7")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
 
-@pytest.mark.parametrize("action_json", [
-    "user1_get_object_legal_hold.json",
-    "user1_get_object_retention.json",
-    "user1_list_bucket.json",
-    "user1_list_objects.json",
-    "user1_list_objects_v2.json"])
+
+@pytest.mark.parametrize(
+    "action_json",
+    [
+        "user1_get_object_legal_hold.json",
+        "user1_get_object_retention.json",
+        "user1_list_bucket.json",
+        "user1_list_objects.json",
+        "user1_list_objects_v2.json",
+    ],
+)
 def test_private_view(action_json):
     with open(f"tests/json_payloads/view_authorization/{action_json}", "r") as file:
         request_body = file.read()
     check_private_view_authorization(request_body)
 
-@pytest.mark.parametrize("action_json", [
-    "user1_put_object.json",
-    "user1_put_object_legal_hold.json",
-    "user1_upload_part.json",
-    "user1_delete_object.json",
-    "user1_delete_objects.json"])
+
+@pytest.mark.parametrize(
+    "action_json",
+    [
+        "user1_put_object.json",
+        "user1_put_object_legal_hold.json",
+        "user1_upload_part.json",
+        "user1_delete_object.json",
+        "user1_delete_objects.json",
+    ],
+)
 def test_private_edit(action_json):
     with open(f"tests/json_payloads/edit_authorization/{action_json}", "r") as file:
         request_body = file.read()
     check_private_edit_authorization(request_body)
+
 
 # private link actions
 def check_private_link_view_authorization(request_body, resource_id="d5c432ae01eb4f03a73d589e54d341b3"):
@@ -166,24 +181,25 @@ def check_private_link_view_authorization(request_body, resource_id="d5c432ae01e
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user5 is an owner
     request_body = request_body.replace("user4", "user5")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user6 is a member of view group
     request_body = request_body.replace("user5", "user6")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user7 is a member of edit group
     request_body = request_body.replace("user6", "user7")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
+
 
 def check_private_link_edit_authorization(request_body, resource_id="d5c432ae01eb4f03a73d589e54d341b3"):
     request_body = request_body.replace("f211b93642f84c55a0bdd1b12880e32e", resource_id)
@@ -209,45 +225,56 @@ def check_private_link_edit_authorization(request_body, resource_id="d5c432ae01e
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user5 is an owner
     request_body = request_body.replace("user4", "user5")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user6 is a member of view group
     request_body = request_body.replace("user5", "user6")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": False}}
-    
+
     # user7 is a member of edit group
     request_body = request_body.replace("user6", "user7")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
 
-@pytest.mark.parametrize("action_json", [
-    "user1_get_object_legal_hold.json",
-    "user1_get_object_retention.json",
-    "user1_list_bucket.json",
-    "user1_list_objects_v2.json"])    
+
+@pytest.mark.parametrize(
+    "action_json",
+    [
+        "user1_get_object_legal_hold.json",
+        "user1_get_object_retention.json",
+        "user1_list_bucket.json",
+        "user1_list_objects_v2.json",
+    ],
+)
 def test_private_link_view(action_json):
     with open(f"tests/json_payloads/view_authorization/{action_json}", "r") as file:
         request_body = file.read()
     check_private_link_view_authorization(request_body)
 
-@pytest.mark.parametrize("action_json", [
-    "user1_put_object.json",
-    "user1_put_object_legal_hold.json",
-    "user1_upload_part.json",
-    "user1_delete_object.json",
-    "user1_delete_objects.json"])
+
+@pytest.mark.parametrize(
+    "action_json",
+    [
+        "user1_put_object.json",
+        "user1_put_object_legal_hold.json",
+        "user1_upload_part.json",
+        "user1_delete_object.json",
+        "user1_delete_objects.json",
+    ],
+)
 def test_private_link_edit(action_json):
     with open(f"tests/json_payloads/edit_authorization/{action_json}", "r") as file:
         request_body = file.read()
     check_private_link_edit_authorization(request_body)
+
 
 # public actions
 def check_public_view_authorization(request_body, resource_id="a2c0df5bf3eb4d8c8a34beaffe169f91"):
@@ -274,24 +301,25 @@ def check_public_view_authorization(request_body, resource_id="a2c0df5bf3eb4d8c8
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user5 is an owner
     request_body = request_body.replace("user4", "user5")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user6 is a member of view group
     request_body = request_body.replace("user5", "user6")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user7 is a member of edit group
     request_body = request_body.replace("user6", "user7")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
+
 
 def check_public_edit_authorization(request_body, resource_id="a2c0df5bf3eb4d8c8a34beaffe169f91"):
     request_body = request_body.replace("f211b93642f84c55a0bdd1b12880e32e", resource_id)
@@ -317,45 +345,56 @@ def check_public_edit_authorization(request_body, resource_id="a2c0df5bf3eb4d8c8
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user5 is an owner
     request_body = request_body.replace("user4", "user5")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user6 is a member of view group
     request_body = request_body.replace("user5", "user6")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": False}}
-    
+
     # user7 is a member of edit group
     request_body = request_body.replace("user6", "user7")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
 
-@pytest.mark.parametrize("action_json", [
-    "user1_get_object_legal_hold.json",
-    "user1_get_object_retention.json",
-    "user1_list_bucket.json",
-    "user1_list_objects_v2.json"])    
+
+@pytest.mark.parametrize(
+    "action_json",
+    [
+        "user1_get_object_legal_hold.json",
+        "user1_get_object_retention.json",
+        "user1_list_bucket.json",
+        "user1_list_objects_v2.json",
+    ],
+)
 def test_public_view(action_json):
     with open(f"tests/json_payloads/view_authorization/{action_json}", "r") as file:
         request_body = file.read()
     check_public_view_authorization(request_body)
 
-@pytest.mark.parametrize("action_json", [
-    "user1_put_object.json",
-    "user1_put_object_legal_hold.json",
-    "user1_upload_part.json",
-    "user1_delete_object.json",
-    "user1_delete_objects.json"])
+
+@pytest.mark.parametrize(
+    "action_json",
+    [
+        "user1_put_object.json",
+        "user1_put_object_legal_hold.json",
+        "user1_upload_part.json",
+        "user1_delete_object.json",
+        "user1_delete_objects.json",
+    ],
+)
 def test_public_edit(action_json):
     with open(f"tests/json_payloads/edit_authorization/{action_json}", "r") as file:
         request_body = file.read()
     check_public_edit_authorization(request_body)
+
 
 # discoverable actions
 def check_discoverable_view_get_authorization(request_body, resource_id="5670903e39d54026a729abd4cc148f99"):
@@ -382,24 +421,25 @@ def check_discoverable_view_get_authorization(request_body, resource_id="5670903
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user5 is an owner
     request_body = request_body.replace("user4", "user5")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user6 is a member of view group
     request_body = request_body.replace("user5", "user6")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user7 is a member of edit group
     request_body = request_body.replace("user6", "user7")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
+
 
 # discoverable actions
 def check_discoverable_view_authorization(request_body, resource_id="5670903e39d54026a729abd4cc148f99"):
@@ -426,24 +466,25 @@ def check_discoverable_view_authorization(request_body, resource_id="5670903e39d
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user5 is an owner
     request_body = request_body.replace("user4", "user5")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user6 is a member of view group
     request_body = request_body.replace("user5", "user6")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user7 is a member of edit group
     request_body = request_body.replace("user6", "user7")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
+
 
 def check_discoverable_edit_authorization(request_body, resource_id="5670903e39d54026a729abd4cc148f99"):
     request_body = request_body.replace("f211b93642f84c55a0bdd1b12880e32e", resource_id)
@@ -469,52 +510,63 @@ def check_discoverable_edit_authorization(request_body, resource_id="5670903e39d
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user5 is an owner
     request_body = request_body.replace("user4", "user5")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
-    
+
     # user6 is a member of view group
     request_body = request_body.replace("user5", "user6")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": False}}
-    
+
     # user7 is a member of edit group
     request_body = request_body.replace("user6", "user7")
     response = client.post("/authorization/", data=request_body)
     assert response.status_code == 200
     assert response.json() == {"result": {"allow": True}}
 
-@pytest.mark.parametrize("action_json", [
-    "user1_get_object_legal_hold.json",
-    "user1_get_object_retention.json",])    
+
+@pytest.mark.parametrize(
+    "action_json",
+    [
+        "user1_get_object_legal_hold.json",
+        "user1_get_object_retention.json",
+    ],
+)
 def test_discoverable_view_get(action_json):
     with open(f"tests/json_payloads/view_authorization/{action_json}", "r") as file:
         request_body = file.read()
     check_discoverable_view_get_authorization(request_body)
 
-@pytest.mark.parametrize("action_json", [
-    "user1_list_bucket.json",
-    "user1_list_objects.json",
-    "user1_list_objects_v2.json"])    
+
+@pytest.mark.parametrize(
+    "action_json", ["user1_list_bucket.json", "user1_list_objects.json", "user1_list_objects_v2.json"]
+)
 def test_discoverable_view(action_json):
     with open(f"tests/json_payloads/view_authorization/{action_json}", "r") as file:
         request_body = file.read()
     check_discoverable_view_authorization(request_body)
 
-@pytest.mark.parametrize("action_json", [
-    "user1_put_object.json",
-    "user1_put_object_legal_hold.json",
-    "user1_upload_part.json",
-    "user1_delete_object.json",
-    "user1_delete_objects.json"])
+
+@pytest.mark.parametrize(
+    "action_json",
+    [
+        "user1_put_object.json",
+        "user1_put_object_legal_hold.json",
+        "user1_upload_part.json",
+        "user1_delete_object.json",
+        "user1_delete_objects.json",
+    ],
+)
 def test_discoverable_edit(action_json):
     with open(f"tests/json_payloads/edit_authorization/{action_json}", "r") as file:
         request_body = file.read()
     check_discoverable_edit_authorization(request_body)
+
 
 # admin actions
 def test_admin_request():
