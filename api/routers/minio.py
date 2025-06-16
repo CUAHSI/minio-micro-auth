@@ -126,9 +126,7 @@ async def hs_s3_authorization_check(auth_request: AuthRequest):
 
 def _check_user_authorization(user_id, resource_id, action):
     # Break this down into just view and edit for now.
-    # HydroShare does not conusme changes made through S3 API yet so edit check is not active
-    # Later on we could share the metadata files only or allow resource deletion.
-    # We will also need to figure out owners at some point
+    # We may need to make owners distinct from edit at some point
 
     # List of actions https://docs.aws.amazon.com/AmazonS3/latest/API/API_Operations.html
 
