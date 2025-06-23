@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -36,6 +37,8 @@ def test_get_service_accounts(mock_service_account_data):
     assert "access_key" in service_account
     assert service_account["access_key"] == access_key
     assert "expiry" in service_account
+    expiry_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
+    assert service_account["expiry"] == f"{expiry_date} 00:00:00 +0000 UTC"
 
 
 def test_delete_service_account(mock_service_account_data):

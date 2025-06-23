@@ -1,6 +1,8 @@
 import logging
+import os
 import secrets
 import subprocess
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Response, status
 from pydantic import BaseModel
@@ -11,6 +13,7 @@ logger = logging.getLogger("micro-auth")
 
 class KeyRequest(BaseModel):
     username: str
+    expiry_days: int = 30
 
 
 class ServiceAccountResponse(BaseModel):
@@ -39,8 +42,9 @@ async def create_service_account(key_request: KeyRequest, response: Response) ->
             text=True,
         )
         print(f"Creating Service Account for {key_request.username}")
+        expiry_date = (datetime.now() + timedelta(days=key_request.expiry_days)).strftime("%Y-%m-%d")
         result = subprocess.run(
-            ["mc", "admin", "user", "svcacct", "add", "hydroshare", key_request.username],
+            ["mc", "admin", "user", "svcacct", "add", "hydroshare", key_request.username, "--expiry", expiry_date],
             check=True,
             capture_output=True,
             text=True,
@@ -55,11 +59,11 @@ async def create_service_account(key_request: KeyRequest, response: Response) ->
     return ServiceAccountResponse(access_key=access_key, secret_key=secret_key)
 
 
-@router.get("/auth/minio/sa/{access_key}")
-async def get_service_accounts(access_key: str) -> ServiceAccountListResponse:
+@router.get("/auth/minio/sa/{username}")
+async def get_service_accounts(username: str) -> ServiceAccountListResponse:
     try:
         result = subprocess.run(
-            ["mc", "admin", "user", "svcacct", "list", "hydroshare", access_key],
+            ["mc", "admin", "user", "svcacct", "list", "hydroshare", username],
             check=True,
             capture_output=True,
             text=True,
@@ -70,7 +74,7 @@ async def get_service_accounts(access_key: str) -> ServiceAccountListResponse:
     lines = result.stdout.splitlines()[1:]  # Skip the header line
     service_accounts = []
     for line in lines:
-        parts = line.split()
+        parts = line.split("|")
         service_account = {"access_key": parts[0].strip(), "expiry": parts[1].strip()}
         service_accounts.append(service_account)
     return {"service_accounts": service_accounts}
