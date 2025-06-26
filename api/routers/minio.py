@@ -92,7 +92,7 @@ async def hs_s3_authorization_check(auth_request: AuthRequest):
         return {"result": {"allow": True}}
 
     try:
-        user_is_superuser, user_id = is_superuser_and_id_cache(username)
+        user_is_superuser, user_id = is_superuser_and_id(username)
     except:
         user_is_superuser, user_id = is_superuser_and_id(username)
         logger.warning(f"Backfilling cache: {username}:(is_superuser:{user_is_superuser},user_id:{user_id})")
@@ -133,13 +133,13 @@ def _check_user_authorization(user_id, resource_id, action):
     # view actions
     if action in VIEW_ACTIONS:
         try:
-            public, allow_private_sharing, discoverable = resource_discoverability_cache(resource_id)
+            public, allow_private_sharing, discoverable = resource_discoverability(resource_id)
         except:
             public, allow_private_sharing, discoverable = resource_discoverability(resource_id)
             backfill_resource_discoverability(resource_id, public, allow_private_sharing, discoverable)
 
         try:
-            view_access = user_has_view_access_cache(user_id, resource_id)
+            view_access = user_has_view_access(user_id, resource_id)
         except:
             view_access = user_has_view_access(user_id, resource_id)
             backfill_view_access(user_id, resource_id, view_access)
@@ -153,7 +153,7 @@ def _check_user_authorization(user_id, resource_id, action):
     # edit actions
     if action in EDIT_ACTIONS:
         try:
-            edit_access = user_has_edit_access_cache(user_id, resource_id)
+            edit_access = user_has_edit_access(user_id, resource_id)
         except:
             edit_access = user_has_edit_access(user_id, resource_id)
             backfill_edit_access(user_id, resource_id, edit_access)
