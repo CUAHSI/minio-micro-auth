@@ -13,4 +13,4 @@ ENV PYTHONPATH "${PYTHONPATH}:/"
 
 COPY ./api /app/api
 
-CMD ["fastapi", "run", "api/main.py", "--port", "80", "--workers", "4"]
+CMD ["fastapi", "run", "api/main.py", "--port", "80"]

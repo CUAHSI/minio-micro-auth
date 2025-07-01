@@ -95,7 +95,6 @@ async def delete_service_account(service_account_key: str, response: Response):
     except Exception as e:
         logger.error(f"CLI command failed with error: {e.stderr}")
         raise e
-    print
 
 
 # TODO: This is not ready for prime time yet, needs more testing
