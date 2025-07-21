@@ -113,18 +113,22 @@ async def hs_s3_authorization_check(auth_request: AuthRequest):
         else:
             return {"result": {"allow": False}}
 
-    resource_ids = [prefix.split("/")[0] for prefix in prefixes]
+    # extracted metadata has a prefix of "md/resource_id" and should be view only
+    resource_ids_and_is_md_path = [
+        (prefix.split("/")[0], False) if prefix.split("/")[0] != "md" else (prefix.split("/")[1], True)
+        for prefix in prefixes
+    ]
     # check the user and each resource against the action
-    for resource_id in resource_ids:
-        if not _check_user_authorization(user_id, resource_id, action):
+    for resource_id, is_md_path in resource_ids_and_is_md_path:
+        if not _check_user_authorization(user_id, resource_id, action, is_md_path):
             return {"result": {"allow": False}}
-    if resource_ids:
+    if resource_ids_and_is_md_path:
         return {"result": {"allow": True}}
 
     return {"result": {"allow": False}}
 
 
-def _check_user_authorization(user_id, resource_id, action):
+def _check_user_authorization(user_id, resource_id, action, is_md_path):
     # Break this down into just view and edit for now.
     # We may need to make owners distinct from edit at some point
 
@@ -152,6 +156,9 @@ def _check_user_authorization(user_id, resource_id, action):
 
     # edit actions
     if action in EDIT_ACTIONS:
+        if is_md_path:
+            # if the prefix request is a metadata path, we do not allow edit access
+            return False
         try:
             edit_access = user_has_edit_access(user_id, resource_id)
         except:

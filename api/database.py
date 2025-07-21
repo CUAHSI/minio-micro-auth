@@ -8,9 +8,11 @@ engine = create_engine(DATABASE_URL)
 
 def is_superuser_and_id(username: str):
     # return is_superuser and user_id as tuple
-    query = """SELECT auth_user.is_superuser, auth_user.id
+    query = """SELECT auth_user.is_superuser, theme_userprofile.user_id
     FROM auth_user
-    WHERE auth_user.username = :username"""
+    INNER JOIN theme_userprofile
+    ON auth_user.id = theme_userprofile.user_id
+    WHERE theme_userprofile._bucket_name = :username"""
 
     with engine.connect() as con:
         rs = con.execute(statement=text(query), parameters=dict(username=username))
