@@ -154,8 +154,9 @@ def _check_user_authorization(user_id, resource_id, action, is_md_path):
         if action in ["s3:ListObjects", "s3:ListObjectsV2", "s3:ListBucket"]:
             return public or allow_private_sharing or discoverable or view_access
 
-    # edit actions
-    if action in EDIT_ACTIONS:
+    # Check if edit actions are enabled via environment variable
+    enable_edit_actions = os.environ.get("ENABLE_EDIT_ACTIONS", "false").lower() == "true"
+    if enable_edit_actions and action in EDIT_ACTIONS:
         if is_md_path:
             # if the prefix request is a metadata path, we do not allow edit access
             return False

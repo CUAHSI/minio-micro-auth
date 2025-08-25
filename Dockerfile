@@ -2,7 +2,7 @@ FROM python:3.11
 
 WORKDIR /app
 
-RUN curl https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc
+RUN curl https://dl.min.io/client/mc/release/linux-amd64/archive/mc.RELEASE.2025-03-12T17-29-24Z -o /usr/local/bin/mc
 RUN chmod +x /usr/local/bin/mc
 
 COPY ./requirements.txt /code/requirements.txt
